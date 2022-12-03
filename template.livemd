@@ -1,0 +1,72 @@
+# Day X
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+input_field = Kino.Input.textarea("Please paste your input file:")
+# input = File.read!("input/02.txt")
+```
+
+## Part 1
+
+```elixir
+test_input = """
+
+"""
+```
+
+Puzzle discription
+
+```elixir
+defmodule One do
+  def run(input) do
+  end
+
+  def reveal(input) do
+    IO.puts("--- Part one ---")
+    IO.puts(input)
+    IO.puts("")
+  end
+end
+
+One.reveal(One.run(test_input))
+assert(One.run(test_input) == 15, "Part 1 with test input failed")
+
+input = Kino.Input.read(input_field)
+result = One.run(input)
+assert(result == 11841, "Part 1 failed")
+One.reveal(result)
+```
+
+## Part 2
+
+Part 2 discription
+
+```elixir
+defmodule Two do
+  def run(input) do
+  end
+
+  def reveal(input) do
+    IO.puts("--- Part one ---")
+    IO.puts(input)
+    IO.puts("")
+  end
+end
+
+Two.reveal(Two.run(test_input))
+assert(Two.run(test_input) == 15, "Part 2 with test input failed")
+
+input = Kino.Input.read(input_field)
+result = Two.run(input)
+assert(result == 11841, "Part 2 failed")
+Two.reveal(result)
+```
