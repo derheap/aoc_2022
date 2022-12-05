@@ -1,0 +1,185 @@
+# Day 5: Supply Stacks
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+input_field = Kino.Input.textarea("Please paste your input file:")
+# input = File.read!("input/02.txt")
+```
+
+## Helper
+
+```elixir
+defmodule AOC do
+  def split_lines(text), do: String.split(text, "\n", trim: true)
+  def split_chunks(text), do: String.split(text, "\n\n", trim: true)
+end
+```
+
+## Part 1
+
+```elixir
+test_input = """
+    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2
+"""
+```
+
+<https://adventofcode.com/2022/day/5>
+
+## Parser
+
+```elixir
+l = [[' ', 'D', ' '], ['N', 'C', ' '], ['Z', 'M', 'P']]
+Enum.zip_with(l, & &1)
+
+defmodule Parse do
+  def run(input) do
+    [t, c] =
+      input
+      |> AOC.split_chunks()
+
+    [towers(t), commands(c)]
+  end
+
+  # Typing the towers in would have been faster …
+  def towers(towers) do
+    towers
+    |> AOC.split_lines()
+    |> Enum.map(fn l -> String.replace(l, ~r(^\s{4}), "[ ] ") end)
+    |> Enum.map(fn l -> String.replace(l, ~r(\s{4}), " [ ]") end)
+    # |> IO.inspect()
+    |> Enum.map(fn l -> String.replace(l, ~r(] ), "]") end)
+    |> Enum.map(fn l -> String.replace(l, ~r"(\[|\])", "") end)
+    |> Enum.reverse()
+    # remove last line
+    |> tl()
+    |> Enum.reverse()
+    |> Enum.map(&to_charlist/1)
+    # @see https://stackoverflow.com/questions/23705074/is-there-a-transpose-function-in-elixir
+    |> Enum.zip_with(& &1)
+    |> Enum.map(&to_string/1)
+    |> Enum.map(fn s -> String.trim_leading(s) end)
+    |> Enum.map(&to_charlist/1)
+  end
+
+  def commands(commands) do
+    commands
+    |> AOC.split_lines()
+    |> Enum.map(fn l ->
+      Regex.run(~r/move (\d+) from (\d+) to (\d+)/, l, capture: :all_but_first)
+    end)
+    |> Enum.map(fn list -> Enum.map(list, &String.to_integer/1) end)
+  end
+end
+```
+
+```elixir
+defmodule One do
+  def run(input) do
+    [stacks, commands] = Parse.run(input)
+    # IO.inspect(stacks)
+    result =
+      Enum.reduce(commands, stacks, fn [count, src, dest], stacks ->
+        move(stacks, {count, src, dest})
+      end)
+
+    Enum.map(result, &hd/1)
+  end
+
+  def _move([crate | stack_from], stack_to) do
+    {stack_from, [crate | stack_to]}
+  end
+
+  def _move(stacks, src, dest) do
+    {tower_src, tower_dest} = _move(Enum.at(stacks, src - 1), Enum.at(stacks, dest - 1))
+
+    stacks
+    |> List.replace_at(src - 1, tower_src)
+    |> List.replace_at(dest - 1, tower_dest)
+  end
+
+  def move(stacks, {0, _src, _dest}) do
+    stacks
+  end
+
+  def move(stacks, {count, src, dest}) do
+    stacks
+    |> _move(src, dest)
+    |> move({count - 1, src, dest})
+  end
+end
+
+One.run(test_input)
+input = Kino.Input.read(input_field)
+One.run(input)
+```
+
+## Part 2
+
+```elixir
+defmodule Two do
+  def run(input) do
+    [stacks, commands] = Parse.run(input)
+    # IO.inspect(stacks)
+    result =
+      Enum.reduce(commands, stacks, fn [count, src, dest], stacks ->
+        move(stacks, {count, src, dest})
+      end)
+
+    Enum.map(result, &hd/1)
+  end
+
+  def _move(stack_from, stack_to, count) do
+    top = Enum.take(stack_from, count)
+    {Enum.drop(stack_from, count), top ++ stack_to}
+  end
+
+  def move(stacks, {count, src, dest}) do
+    {tower_src, tower_dest} = _move(Enum.at(stacks, src - 1), Enum.at(stacks, dest - 1), count)
+
+    stacks
+    |> List.replace_at(src - 1, tower_src)
+    |> List.replace_at(dest - 1, tower_dest)
+  end
+end
+
+Two.run(test_input)
+
+input = Kino.Input.read(input_field)
+result = Two.run(input)
+# One.run(input)
+```
+
+## Both parts
+
+```elixir
+input = Kino.Input.read(input_field)
+
+IO.puts("--- Part one ---")
+assert(One.run(test_input) == 'CMZ', "Part 1 with test input failed")
+result = One.run(input)
+assert(result == 'TQRFCBSJJ', "Part 1 failed")
+IO.puts(result)
+
+IO.puts("--- Part two ---")
+assert(Two.run(test_input) == 'MCD', "Part 2 with test input failed")
+result_2 = Two.run(input)
+assert(result_2 == 'RMHFJNVFP', "Part 2 failed")
+IO.puts(result_2)
+```
