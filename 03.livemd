@@ -95,15 +95,20 @@ assert(result == 7553, "Part 1 failed")
 One.reveal(result)
 ```
 
-```elixir
-c = "A"
-code = hd(to_charlist(c))
+Other verson for part 1. better suited for part 2.
 
-if code < 97 do
-  code - 64 + 26
-else
-  code - 96
-end
+```elixir
+s = "vJrwpWtwJgWrhcsFMMfFFhFp"
+
+s
+|> String.split("\n", trim: true)
+|> Enum.map(fn s -> String.split_at(s, Integer.floor_div(String.length(s), 2)) end)
+|> Enum.map(fn {p1, p2} -> {to_charlist(p1), to_charlist(p2)} end)
+|> Enum.map(fn {p1, p2} -> Enum.uniq(p1) ++ Enum.uniq(p2) end)
+|> Enum.map(fn cl -> Enum.sort(cl) end)
+|> Enum.map(fn cl ->
+  Enum.reduce_while(cl, '', fn c, acc -> if c == acc, do: {:halt, c}, else: {:cont, c} end)
+end)
 ```
 
 ## Part 2
@@ -134,21 +139,69 @@ Find the item type that corresponds to the badges of each three-Elf group. What 
 
 ```elixir
 defmodule Two do
+  def group(list) do
+    group(list, [])
+  end
+
+  def group([], acc) do
+    acc
+  end
+
+  def group(list, acc) do
+    {part, rest} = Enum.split(list, 3)
+    group(rest, [part | acc])
+  end
+
+  def prepare(items) do
+    items
+    |> to_charlist()
+    |> Enum.uniq()
+  end
+
+  def priority(code) do
+    if code < 97 do
+      code - 64 + 26
+    else
+      code - 96
+    end
+  end
+
+  def common(list) do
+    list
+    |> Enum.map(&prepare/1)
+    |> then(fn [l1, l2, l3] -> l1 ++ l2 ++ l3 end)
+    |> Enum.sort()
+    |> Enum.reduce_while({'', 0}, fn c, acc ->
+      {last, n} = acc
+
+      if c == last do
+        if n == 1, do: {:halt, c}, else: {:cont, {c, n + 1}}
+      else
+        {:cont, {c, 0}}
+      end
+    end)
+  end
+
   def run(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> group()
+    |> Enum.map(fn group -> common(group) end)
+    |> Enum.map(&priority/1)
+    |> Enum.sum()
   end
 
   def reveal(input) do
     IO.puts("--- Part two ---")
-    IO.puts(input)
-    IO.puts("")
+    IO.inspect(input)
   end
 end
 
-Two.reveal(Two.run(test_input))
-# assert(Two.run(test_input) == 15, "Part 2 with test input failed")
+Two.run(test_input)
+assert(Two.run(test_input) == 70, "Part 2 with test input failed")
 
-# input = Kino.Input.read(input_field)
-# result = Two.run(input)
-# assert(result == 11841, "Part 2 failed")
-# Two.reveal(result)
+input = Kino.Input.read(input_field)
+result = Two.run(input)
+assert(result == 2758, "Part 2 failed")
+Two.reveal(result)
 ```
