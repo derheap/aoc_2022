@@ -1,0 +1,103 @@
+# Day 4: Camp Cleanup
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+input_field = Kino.Input.textarea("Please paste your input file:")
+```
+
+## Part 1
+
+```elixir
+test_input = """
+2-4,6-8
+2-3,4-5
+5-7,7-9
+2-8,3-7
+6-6,4-6
+2-6,4-8
+"""
+```
+
+For the first few pairs, this list means:
+
+* Within the first pair of Elves, the first Elf was assigned sections 2-4 (sections 2, 3, and 4), while the second Elf was assigned sections 6-8 (sections 6, 7, 8).
+* The Elves in the second pair were each assigned two sections.
+* The Elves in the third pair were each assigned three sections: one got sections 5, 6, and 7, while the other also got 7, plus 8 and 9.
+
+Some of the pairs have noticed that one of their assignments fully contains the other. For example, 2-8 fully contains 3-7, and 6-6 is fully contained by 4-6. In pairs where one assignment fully contains the other, one Elf in the pair would be exclusively cleaning sections their partner will already be cleaning, so these seem like the most in need of reconsideration. In this example, there are 2 such pairs.
+
+In how many assignment pairs does one range fully contain the other?
+
+```elixir
+defmodule One do
+  def parse_line(line) do
+    [r1, r2] =
+      line
+      |> String.split(",")
+      |> Enum.map(fn part -> String.split(part, "-") end)
+      |> Enum.map(fn [x, y] -> [String.to_integer(x), String.to_integer(y)] end)
+
+    case hd(r1) <= hd(r2) do
+      true -> [r1 | [r2]]
+      _ -> [r2 | [r1]]
+    end
+  end
+
+  def contained([[l1, h1], [l2, h2]]) do
+    if (l1 <= l2 && h1 >= h2) || (l1 >= l2 && h1 <= h2), do: 1, else: 0
+  end
+
+  def run(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse_line/1)
+    |> Enum.map(&contained/1)
+    |> Enum.sum()
+  end
+end
+
+One.run(test_input)
+assert(One.run(test_input) == 2, "Part 1 with test input failed")
+
+input = Kino.Input.read(input_field)
+result = One.run(input)
+assert(result == 471, "Part 1 failed")
+IO.puts(result)
+```
+
+## Part 2
+
+Part 2 discription
+
+```elixir
+defmodule Two do
+  def contained([[l1, h1], [l2, h2]]) do
+    if (l1 <= l2 && h1 >= l2) || (l1 >= l2 && h2 >= l1), do: 1, else: 0
+  end
+
+  def run(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&One.parse_line/1)
+    |> Enum.map(&contained/1)
+    |> Enum.sum()
+  end
+end
+
+Two.run(test_input)
+assert(Two.run(test_input) == 4, "Part 2 with test input failed")
+
+input = Kino.Input.read(input_field)
+result = Two.run(input)
+assert(result == 888, "Part 2 failed")
+IO.inspect(result)
+```
