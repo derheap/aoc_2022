@@ -12,6 +12,7 @@ import ExUnit.Assertions
 
 ```elixir
 input_field = Kino.Input.textarea("Please paste your input file:")
+# input = File.read!("input/02.txt")
 ```
 
 ## Part 1
@@ -22,50 +23,49 @@ test_input = """
 """
 ```
 
-Puzzle discription
+Link to puzzle
 
 ```elixir
 defmodule One do
   def run(input) do
   end
-
-  def reveal(input) do
-    IO.puts("--- Part one ---")
-    IO.puts(input)
-    IO.puts("")
-  end
 end
 
 One.run(test_input)
-# assert(One.run(test_input) == 15, "Part 1 with test input failed")
 
 # input = Kino.Input.read(input_field)
-# result = One.run(input)
-# assert(result == 11841, "Part 1 failed")
-# One.reveal(result)
+# One.run(input)
 ```
 
 ## Part 2
-
-Part 2 discription
 
 ```elixir
 defmodule Two do
   def run(input) do
   end
-
-  def reveal(input) do
-    IO.puts("--- Part two ---")
-    IO.puts(input)
-    IO.puts("")
-  end
 end
 
 Two.run(test_input)
-# assert(Two.run(test_input) == 15, "Part 2 with test input failed")
 
 # input = Kino.Input.read(input_field)
 # result = Two.run(input)
-# assert(result == 11841, "Part 2 failed")
-# Two.reveal(result)
+# One.run(input)
+```
+
+## Both parts
+
+```elixir
+input = Kino.Input.read(input_field)
+
+IO.puts("--- Part one ---")
+assert(One.run(test_input) == 15, "Part 1 with test input failed")
+result = One.run(input)
+assert(result == 11841, "Part 1 failed")
+IO.puts(result)
+
+IO.puts("--- Part two ---")
+assert(Two.run(test_input) == 15, "Part 2 with test input failed")
+result_2 = Two.run(input)
+assert(result_2 == 11841, "Part 1 failed")
+IO.puts(result_2)
 ```
