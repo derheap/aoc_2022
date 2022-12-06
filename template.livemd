@@ -11,8 +11,17 @@ import ExUnit.Assertions
 ## Import data
 
 ```elixir
-input_field = Kino.Input.textarea("Please paste your input file:")
-# input = File.read!("input/02.txt")
+# input_field = Kino.Input.textarea("Please paste your input file:")
+input = File.read!(__DIR__ <> "/input/06.txt")
+```
+
+## Helper
+
+```elixir
+defmodule AOC do
+  def split_lines(text), do: String.split(text, "\n", trim: true)
+  def split_chunks(text), do: String.split(text, "\n\n", trim: true)
+end
 ```
 
 ## Part 1
@@ -23,7 +32,16 @@ test_input = """
 """
 ```
 
-Link to puzzle
+<https://adventofcode.com/2022/day/5>
+
+## Parser
+
+```elixir
+defmodule Parse do
+  def run(input) do
+  end
+end
+```
 
 ```elixir
 defmodule One do
@@ -32,9 +50,10 @@ defmodule One do
 end
 
 One.run(test_input)
+```
 
-# input = Kino.Input.read(input_field)
-# One.run(input)
+```elixir
+One.run(input)
 ```
 
 ## Part 2
@@ -46,26 +65,24 @@ defmodule Two do
 end
 
 Two.run(test_input)
+```
 
-# input = Kino.Input.read(input_field)
-# result = Two.run(input)
-# One.run(input)
+```elixir
+result = Two.run(input)
 ```
 
 ## Both parts
 
 ```elixir
-input = Kino.Input.read(input_field)
-
 IO.puts("--- Part one ---")
-assert(One.run(test_input) == 15, "Part 1 with test input failed")
+assert(One.run(test_input) == 42, "Part 1 with test input failed")
 result = One.run(input)
-assert(result == 11841, "Part 1 failed")
+assert(result == 42, "Part 1 failed")
 IO.puts(result)
 
 IO.puts("--- Part two ---")
-assert(Two.run(test_input) == 15, "Part 2 with test input failed")
+assert(Two.run(test_input) == 23, "Part 2 with test input failed")
 result_2 = Two.run(input)
-assert(result_2 == 11841, "Part 1 failed")
+assert(result_2 == 23, "Part 2 failed")
 IO.puts(result_2)
 ```
