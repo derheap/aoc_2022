@@ -1,0 +1,114 @@
+# Day X
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+# input_field = Kino.Input.textarea("Please paste your input file:")
+input = File.read!(__DIR__ <> "/input/06.txt")
+```
+
+## Helper
+
+```elixir
+defmodule AOC do
+  def split_lines(text), do: String.split(text, "\n", trim: true)
+  def split_chunks(text), do: String.split(text, "\n\n", trim: true)
+end
+```
+
+## Part 1
+
+```elixir
+test_input = """
+mjqjpqmgbljsphdztnvjfqwrcgsmlb
+"""
+```
+
+<https://adventofcode.com/2022/day/5>
+
+## Parser
+
+```elixir
+defmodule Parse do
+  def run(input) do
+  end
+end
+```
+
+```elixir
+defmodule One do
+  def all_unique(a, b, c, d) do
+    length(Enum.uniq([a, b, c, d])) == 4
+  end
+
+  def marker(<<a, b, c, d, rest::binary>>, count) do
+    if all_unique(a, b, c, d) do
+      count
+    else
+      marker(<<b>> <> <<c>> <> <<d>> <> rest, count + 1)
+    end
+  end
+
+  def run(input) do
+    marker(input, 4)
+  end
+end
+
+One.run(test_input)
+```
+
+```elixir
+One.run(input)
+```
+
+## Part 2
+
+```elixir
+defmodule Two do
+  def all_unique(a, rest) do
+    length(Enum.uniq(to_charlist(<<a>> <> <<rest::size(13 * 8)>>))) == 14
+  end
+
+  def marker(<<a, next::size(13 * 8), rest::binary>>, count) do
+    if all_unique(a, next) do
+      count
+    else
+      marker(<<next::size(13 * 8)>> <> rest, count + 1)
+    end
+  end
+
+  def run(input) do
+    marker(input, 14)
+  end
+end
+
+Two.run(test_input)
+```
+
+```elixir
+result = Two.run(input)
+```
+
+## Both parts
+
+```elixir
+IO.puts("--- Part one ---")
+assert(One.run(test_input) == 7, "Part 1 with test input failed")
+result = One.run(input)
+assert(result == 1804, "Part 1 failed")
+IO.puts(result)
+
+IO.puts("--- Part two ---")
+assert(Two.run(test_input) == 19, "Part 2 with test input failed")
+result_2 = Two.run(input)
+assert(result_2 == 2508, "Part 2 failed")
+IO.puts(result_2)
+```
