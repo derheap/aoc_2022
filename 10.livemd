@@ -1,0 +1,296 @@
+# Day 10: Cathode-Ray Tube
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+# input_field = Kino.Input.textarea("Please paste your input file:")
+input = File.read!(__DIR__ <> "/input/10.txt")
+```
+
+## Helper
+
+```elixir
+defmodule AOC do
+  def split_lines(text), do: String.split(text, "\n", trim: true)
+  def split_chunks(text), do: String.split(text, "\n\n", trim: true)
+end
+```
+
+## Part 1
+
+```elixir
+test_input = """
+addx 15
+addx -11
+addx 6
+addx -3
+addx 5
+addx -1
+addx -8
+addx 13
+addx 4
+noop
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx 5
+addx -1
+addx -35
+addx 1
+addx 24
+addx -19
+addx 1
+addx 16
+addx -11
+noop
+noop
+addx 21
+addx -15
+noop
+noop
+addx -3
+addx 9
+addx 1
+addx -3
+addx 8
+addx 1
+addx 5
+noop
+noop
+noop
+noop
+noop
+addx -36
+noop
+addx 1
+addx 7
+noop
+noop
+noop
+addx 2
+addx 6
+noop
+noop
+noop
+noop
+noop
+addx 1
+noop
+noop
+addx 7
+addx 1
+noop
+addx -13
+addx 13
+addx 7
+noop
+addx 1
+addx -33
+noop
+noop
+noop
+addx 2
+noop
+noop
+noop
+addx 8
+noop
+addx -1
+addx 2
+addx 1
+noop
+addx 17
+addx -9
+addx 1
+addx 1
+addx -3
+addx 11
+noop
+noop
+addx 1
+noop
+addx 1
+noop
+noop
+addx -13
+addx -19
+addx 1
+addx 3
+addx 26
+addx -30
+addx 12
+addx -1
+addx 3
+addx 1
+noop
+noop
+noop
+addx -9
+addx 18
+addx 1
+addx 2
+noop
+noop
+addx 9
+noop
+noop
+noop
+addx -1
+addx 2
+addx -37
+addx 1
+addx 3
+noop
+addx 15
+addx -21
+addx 22
+addx -6
+addx 1
+noop
+addx 2
+addx 1
+noop
+addx -10
+noop
+noop
+addx 20
+addx 1
+addx 2
+addx 2
+addx -6
+addx -11
+noop
+noop
+noop
+"""
+```
+
+<https://adventofcode.com/2022/day/5>
+
+## Parser
+
+```elixir
+defmodule Parse do
+  def run(input) do
+  end
+end
+```
+
+```elixir
+defmodule One do
+  def run(input) do
+    input
+    |> AOC.split_lines()
+    |> cpu(%{x: 1, c: 1, sum: 0})
+  end
+
+  def signal(x, c) do
+    if rem(c + 20, 40) == 0 do
+      x * c
+    else
+      0
+    end
+  end
+
+  def cpu([], %{sum: sum}) do
+    sum
+  end
+
+  def cpu([inst | programm], state) do
+    cpu(inst, programm, state)
+  end
+
+  def cpu(<<"noop">>, programm, %{x: x, c: c, sum: sum}) do
+    strength = signal(x, c)
+    cpu(programm, %{x: x, c: c + 1, sum: sum + strength})
+  end
+
+  def cpu(<<"addx ", rest::binary>>, programm, %{x: x, c: c, sum: sum}) do
+    strength = signal(x, c) + signal(x, c + 1)
+    arg = String.to_integer(rest)
+    cpu(programm, %{x: x + arg, c: c + 2, sum: sum + strength})
+  end
+end
+
+One.run(test_input)
+```
+
+```elixir
+One.run(input)
+```
+
+## Part 2
+
+```elixir
+defmodule Two do
+  def run(input) do
+    input
+    |> AOC.split_lines()
+    |> cpu(%{x: 1, c: 1, crt: ""})
+  end
+
+  def signal(x, c) do
+    pos = rem(c - 1, 40)
+
+    if pos == x || pos == x - 1 || pos == x + 1 do
+      "#"
+    else
+      "."
+    end
+  end
+
+  def cpu([], %{crt: crt}) do
+    list = for <<x::binary-40 <- crt>>, do: x
+    Enum.join(list, "\n")
+  end
+
+  def cpu([inst | programm], state) do
+    cpu(inst, programm, state)
+  end
+
+  def cpu(<<"noop">>, programm, %{x: x, c: c, crt: crt}) do
+    strength = signal(x, c)
+    cpu(programm, %{x: x, c: c + 1, crt: crt <> strength})
+  end
+
+  def cpu(<<"addx ", rest::binary>>, programm, %{x: x, c: c, crt: crt}) do
+    strength = signal(x, c) <> signal(x, c + 1)
+    arg = String.to_integer(rest)
+    cpu(programm, %{x: x + arg, c: c + 2, crt: crt <> strength})
+  end
+end
+
+IO.puts(Two.run(test_input))
+```
+
+```elixir
+IO.puts(Two.run(input))
+```
+
+## Both parts
+
+```elixir
+IO.puts("--- Part one ---")
+assert(One.run(test_input) == 13140, "Part 1 with test input failed")
+result = One.run(input)
+assert(result == 14780, "Part 1 failed")
+IO.puts(result)
+
+IO.puts("--- Part two ---")
+# assert(Two.run(test_input) == 23, "Part 2 with test input failed")
+result_2 = Two.run(input)
+# assert(result_2 == "ELPLZGZL", "Part 2 failed")
+IO.puts(result_2)
+```
