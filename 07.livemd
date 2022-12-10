@@ -1,0 +1,232 @@
+# Day 7: No Space Left On Device
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+# input_field = Kino.Input.textarea("Please paste your input file:")
+input = File.read!(__DIR__ <> "/input/07.txt")
+```
+
+## Helper
+
+```elixir
+defmodule AOC do
+  def split_lines(text), do: String.split(text, "\n", trim: true)
+  def split_chunks(text), do: String.split(text, "\n\n", trim: true)
+end
+```
+
+## Part 1
+
+```elixir
+test_input = """
+$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k
+"""
+```
+
+<https://adventofcode.com/2022/day/7>
+
+## Parser
+
+```elixir
+defmodule Parse do
+  def run(input) do
+    input
+    |> AOC.split_lines()
+    |> Enum.map(&tokenize/1)
+  end
+
+  def tokenize(<<"$ cd ", rest::binary>>) do
+    {:cd, rest}
+  end
+
+  def tokenize(<<"$ ls">>) do
+    {:ls}
+  end
+
+  def tokenize(<<"dir ", rest::binary>>) do
+    {:dir, rest}
+  end
+
+  @doc """
+  Tokinze file line.
+  """
+  def tokenize(line) do
+    [size, name] = String.split(line, " ")
+    {:file, name, String.to_integer(size)}
+  end
+end
+```
+
+```elixir
+defmodule Tree do
+  @moduledoc """
+  Should return something like
+  [
+    {"/", 123324324, 
+      [{"a", 862346, []},
+      {"b", 23423423, [
+        {"c", 23487234, []}
+      ]}
+    }
+  ]
+  """
+
+  def tree({:cd, "/"}, _) do
+    {0, [{"/", 0, []}]}
+  end
+
+  def tree({:cd, ".."}, {total, [{cname, csize, csub} | stack]}) do
+    # IO.inspect("..")
+
+    case stack do
+      [{pname, psum, psub} | rest] ->
+        {if(csize < 1_000_000, do: total + csize, else: total),
+         [{pname, psum + csize, [{cname, csize, csub}] ++ psub} | rest]}
+    end
+  end
+
+  def tree({:cd, name}, {total, state}) do
+    {total, [{name, 0, []} | state]}
+  end
+
+  def tree({:ls}, state) do
+    state
+  end
+
+  def tree({:dir, _name}, state) do
+    state
+  end
+
+  def tree({:file, _name, size}, {total, [{name, sum, sub} | rest]}) do
+    {total, [{name, sum + size, sub} | rest]}
+  end
+end
+
+defmodule One do
+  @at_most 100_000
+
+  def run(input) do
+    input
+    |> Parse.run()
+    # |> IO.inspect()
+    |> Enum.reduce(nil, fn cmd, state -> Tree.tree(cmd, state) end)
+    # |> IO.inspect()
+    |> then(fn {_, fs} -> sum_it(0, fs) end)
+  end
+
+  def sum_it(sum, []) do
+    sum
+  end
+
+  # "Size of one directory"
+  def sum_it(sum, [dir]) do
+    {_name, size, sub} = dir
+    dir_size = if size <= @at_most, do: size, else: 0
+    sum_it(sum + dir_size, sub)
+  end
+
+  # "Sum of directory with child and siblings"
+  def sum_it(sum, [dir | siblings]) do
+    sum_it(sum + sum_it(0, [dir]), siblings)
+  end
+end
+
+One.run(test_input)
+```
+
+```elixir
+result = One.run(input)
+IO.puts(result)
+assert(result == 1_325_919, "Part 1 failed")
+```
+
+## Part 2
+
+```elixir
+defmodule Two do
+  @memory 70_000_000
+  @needed 30_000_000
+  def run(input) do
+    {_, fs} =
+      input
+      |> Parse.run()
+      # |> IO.inspect()
+      |> Enum.reduce(nil, fn cmd, state -> Tree.tree(cmd, state) end)
+      |> IO.inspect()
+
+    # Get current size
+    [{_, size, _}] = fs
+    unused = @memory - size
+    find_it(@needed - unused, @memory, fs)
+  end
+
+  def find_it(goal, minimum, []) do
+    {goal, minimum, []}
+  end
+
+  def find_it(goal, minimum, [dir]) do
+    {_name, size, sub} = dir
+    new_minimum = if size > goal && size < minimum, do: size, else: minimum
+    find_it(goal, new_minimum, sub)
+  end
+
+  def find_it(goal, minimum, [dir | siblings]) do
+    {_, size, _} = find_it(goal, minimum, [dir])
+    new_minimum = if size > goal && size < minimum, do: size, else: minimum
+    find_it(goal, new_minimum, siblings)
+  end
+end
+
+Two.run(test_input)
+```
+
+```elixir
+result = Two.run(input)
+```
+
+## Both parts
+
+```elixir
+IO.puts("--- Part one ---")
+assert(One.run(test_input) == 95437, "Part 1 with test input failed")
+result = One.run(input)
+assert(result == 1_325_919, "Part 1 failed")
+IO.puts(result)
+
+IO.puts("--- Part two ---")
+assert(Two.run(test_input) == 24_933_642, "Part 2 with test input failed")
+result_2 = Two.run(input)
+assert(result_2 == 23, "Part 2 failed")
+IO.puts(result_2)
+```
