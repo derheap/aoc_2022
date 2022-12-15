@@ -1,0 +1,181 @@
+# Day 13: Distress Signal
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+# input_field = Kino.Input.textarea("Please paste your input file:")
+input = File.read!(__DIR__ <> "/input/13.txt")
+```
+
+## Helper
+
+```elixir
+defmodule AOC do
+  def split_lines(text), do: String.split(text, "\n", trim: true)
+  def split_chunks(text), do: String.split(text, "\n\n", trim: true)
+end
+```
+
+## Part 1
+
+```elixir
+test_input = """
+[1,1,3,1,1]
+[1,1,5,1,1]
+
+[[1],[2,3,4]]
+[[1],4]
+
+[9]
+[[8,7,6]]
+
+[[4,4],4,4]
+[[4,4],4,4,4]
+
+[7,7,7,7]
+[7,7,7]
+
+[]
+[3]
+
+[[[]]]
+[[]]
+
+[1,[2,[3,[4,[5,6,7]]]],8,9]
+[1,[2,[3,[4,[5,6,0]]]],8,9]
+"""
+```
+
+<https://adventofcode.com/2022/day/13>
+
+## Parser
+
+```elixir
+defmodule Parse do
+  def run(input) do
+    input
+    |> AOC.split_chunks()
+    |> Enum.map(&AOC.split_lines/1)
+    |> Enum.map(fn list ->
+      Enum.map(list, fn part ->
+        {code, _} = Code.eval_string(part)
+        code
+      end)
+    end)
+  end
+end
+```
+
+```elixir
+defmodule One do
+  def compare(l, r) when is_number(l) and is_number(r) do
+    cond do
+      l < r -> :ok
+      l == r -> :next
+      l > r -> :not_ok
+    end
+  end
+
+  def compare(l, r) when is_list(l) and is_number(r) do
+    compare(l, [r])
+  end
+
+  def compare(l, r) when is_number(l) and is_list(r) do
+    compare([l], r)
+  end
+
+  def compare(l, r) when is_list(l) and is_list(r) do
+    cond do
+      l == [] and r != [] ->
+        :ok
+
+      l == [] and r == [] ->
+        :next
+
+      l != [] and r == [] ->
+        :not_ok
+
+      true ->
+        case compare(hd(l), hd(r)) do
+          :next -> compare(tl(l), tl(r))
+          result -> result
+        end
+    end
+  end
+
+  def run(input) do
+    input
+    |> Parse.run()
+    |> Enum.map(fn [l, r] -> compare(l, r) end)
+    |> Enum.reduce({1, 0}, fn status, {idx, sum} ->
+      case status do
+        :ok -> {idx + 1, sum + idx}
+        :not_ok -> {idx + 1, sum}
+      end
+    end)
+    |> then(fn {_, sum} -> sum end)
+  end
+end
+
+One.run(test_input)
+```
+
+```elixir
+One.run(input)
+```
+
+## Part 2
+
+```elixir
+defmodule Two do
+  def sorter(l, r) do
+    if One.compare(l, r) == :ok, do: true, else: false
+  end
+
+  def run(input) do
+    input
+    |> Parse.run()
+    |> Enum.flat_map(fn x -> x end)
+    |> Enum.concat([[[2]], [[6]]])
+    |> Enum.sort(&sorter/2)
+    |> Enum.reduce({1, 1}, fn list, {idx, prod} ->
+      if list == [[2]] or list == [[6]] do
+        {idx + 1, prod * idx}
+      else
+        {idx + 1, prod}
+      end
+    end)
+    |> then(fn {_, prod} -> prod end)
+  end
+end
+
+Two.run(test_input)
+```
+
+```elixir
+result = Two.run(input)
+```
+
+## Both parts
+
+```elixir
+IO.puts("--- Part one ---")
+assert(One.run(test_input) == 13, "Part 1 with test input failed")
+result = One.run(input)
+assert(result == 5555, "Part 1 failed")
+IO.puts(result)
+
+IO.puts("--- Part two ---")
+assert(Two.run(test_input) == 140, "Part 2 with test input failed")
+result_2 = Two.run(input)
+assert(result_2 == 22852, "Part 2 failed")
+IO.puts(result_2)
+```
