@@ -1,0 +1,229 @@
+# Day 12: Hill Climbing Algorithm
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+# input_field = Kino.Input.textarea("Please paste your input file:")
+input = File.read!(__DIR__ <> "/input/12.txt")
+```
+
+## Helper
+
+```elixir
+defmodule AOC do
+  def split_lines(text), do: String.split(text, "\n", trim: true)
+  def split_chunks(text), do: String.split(text, "\n\n", trim: true)
+end
+```
+
+## Part 1
+
+```elixir
+test_input = """
+Sabqponm
+abcryxxl
+accszExk
+acctuvwj
+abdefghi
+"""
+```
+
+<https://adventofcode.com/2022/day/5>
+
+## Parser
+
+```elixir
+defmodule Node do
+  defstruct height: ?a, cost: 9_999_999, visited: false, edges: []
+end
+
+defmodule Parse do
+  def run(input) do
+    input
+    |> AOC.split_lines()
+    # Add row index
+    |> Enum.with_index()
+    |> Enum.map(fn {line, row} ->
+      # Add col index
+      Enum.with_index(
+        String.split(line, "", trim: true),
+        # and build {{x,y},el} tuple
+        # Fix height for end
+        fn el, idx ->
+          {{idx + 1, row + 1},
+           %Node{
+             height:
+               case hd(String.to_charlist(el)) do
+                 ?E -> ?z + 1
+                 x -> x
+               end
+           }}
+        end
+      )
+    end)
+    |> Enum.flat_map(&Function.identity/1)
+    |> Map.new()
+  end
+end
+
+nodes = Parse.run(test_input)
+```
+
+```elixir
+defmodule One do
+  @doc """
+  Find node to start
+  """
+  def start(nodes) do
+    s =
+      nodes
+      |> Map.filter(fn {_, v} -> v.height == ?S end)
+      |> Map.keys()
+
+    hd(s)
+  end
+
+  def can_step_to(nodes, {x, y}, height) do
+    case Map.fetch(nodes, {x, y}) do
+      {:ok, node} ->
+        if node.height - height <= 1, do: {x, y}, else: false
+
+      _ ->
+        false
+    end
+  end
+
+  def can_reach(nodes, {x, y}, height) do
+    # Fix height for start
+    height = if height == ?S, do: ?a, else: height
+
+    Enum.filter(
+      [
+        can_step_to(nodes, {x - 1, y}, height),
+        can_step_to(nodes, {x + 1, y}, height),
+        can_step_to(nodes, {x, y - 1}, height),
+        can_step_to(nodes, {x, y + 1}, height)
+      ],
+      &Function.identity/1
+    )
+  end
+
+  def run(input) do
+    nodes = Parse.run(input)
+    first = start(nodes)
+
+    nodes
+    |> Map.update(first, node, fn node -> %{node | cost: 0} end)
+    |> recur(first)
+  end
+
+  def update_cost(nodes, pos, cost) do
+    Map.update(nodes, pos, node, fn node ->
+      if node.cost > cost, do: %{node | cost: cost}, else: node
+    end)
+  end
+
+  def recur(nodes, current, node) do
+  end
+
+  def print_way(nodes) do
+    nodes
+    |> Map.to_list()
+    |> Enum.sort(&sort_by_cost/2)
+    |> Enum.each(fn {p, n} ->
+      IO.puts(Enum.join(Tuple.to_list(p), ",") <> " @" <> Integer.to_string(n.cost))
+    end)
+  end
+
+  def recur(nodes, current) do
+    # IO.inspect(current, label: "@")
+    {:ok, node} = Map.fetch(nodes, current)
+
+    if node.height == ?z + 1 do
+      IO.inspect(current, label: "DONE")
+      IO.inspect(node, label: "DONE")
+      print_way(nodes)
+
+      []
+    else
+      if !node.visited do
+        cost = node.cost + 1
+        possible_nodes = can_reach(nodes, current, node.height)
+
+        nodes =
+          Map.update(nodes, current, node, fn node ->
+            %{node | visited: true, edges: possible_nodes}
+          end)
+
+        # IO.inspect(possible_nodes, label: "edges")
+
+        updated_cost_nodes =
+          possible_nodes
+          |> Enum.reduce(nodes, fn pos, nodes -> update_cost(nodes, pos, cost) end)
+
+        updated_nodes =
+          possible_nodes
+          |> Enum.reduce_while(updated_cost_nodes, fn pos, nodes ->
+            n = recur(nodes, pos)
+
+            case n do
+              [] -> {:halt, nodes}
+              _ -> {:cont, n}
+            end
+          end)
+      else
+        nodes
+      end
+    end
+  end
+
+  def sort_by_cost({_, a}, {_, b}) do
+    a.cost <= b.cost
+  end
+end
+
+One.run(test_input)
+```
+
+```elixir
+One.run(input)
+```
+
+## Part 2
+
+```elixir
+defmodule Two do
+  def run(input) do
+  end
+end
+
+Two.run(test_input)
+```
+
+```elixir
+result = Two.run(input)
+```
+
+## Both parts
+
+```elixir
+IO.puts("--- Part one ---")
+assert(One.run(test_input) == 42, "Part 1 with test input failed")
+result = One.run(input)
+assert(result == 42, "Part 1 failed")
+IO.puts(result)
+
+IO.puts("--- Part two ---")
+assert(Two.run(test_input) == 23, "Part 2 with test input failed")
+result_2 = Two.run(input)
+assert(result_2 == 23, "Part 2 failed")
+IO.puts(result_2)
+```
