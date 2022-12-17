@@ -42,7 +42,7 @@ abdefghi
 
 ```elixir
 defmodule Node do
-  defstruct height: ?a, cost: 9_999_999, visited: false, edges: []
+  defstruct id: nil, height: ?a, cost: 9_999_999, from: nil
 end
 
 defmodule Parse do
@@ -60,6 +60,7 @@ defmodule Parse do
         fn el, idx ->
           {{idx + 1, row + 1},
            %Node{
+             id: {idx + 1, row + 1},
              height:
                case hd(String.to_charlist(el)) do
                  ?E -> ?z + 1
@@ -122,87 +123,89 @@ defmodule One do
 
     nodes
     |> Map.update(first, node, fn node -> %{node | cost: 0} end)
-    |> dijkstra(first, [], MapSet.new())
+    |> dijkstra(first, [])
   end
 
-  def update_cost(nodes, pos, cost) do
-    Map.update(nodes, pos, node, fn node ->
+  def update_cost(nodes, pos, cost, from) do
+    nodes
+    |> Map.update(pos, nil, fn node ->
       if cost < node.cost, do: %{node | cost: cost}, else: node
     end)
+    |> Map.update(pos, nil, fn node -> %{node | from: from} end)
+  end
+
+  def pos_to_string({x, y}) do
+    Integer.to_string(x) <> "," <> Integer.to_string(y)
+  end
+
+  def pos_to_string(nil) do
+    "?,?"
   end
 
   def print_way(nodes) do
     nodes
-    |> Map.to_list()
     |> Enum.sort(&sort_by_cost/2)
-    |> Enum.each(fn {p, n} ->
-      IO.puts(Enum.join(Tuple.to_list(p), ",") <> " @" <> Integer.to_string(n.cost))
+    |> Enum.each(fn n ->
+      IO.puts(
+        pos_to_string(n.from) <>
+          " -> " <>
+          pos_to_string(n.id) <>
+          " @" <>
+          Integer.to_string(n.cost)
+      )
     end)
   end
 
-  def sort_by_cost({_, a}, {_, b}) do
+  def sort_by_cost(a, b) do
     a.cost < b.cost
   end
 
   def sort_nodes_by_cost(nodes, a, b) do
+    IO.inspect({a, b, nodes})
     node_a = Map.fetch!(nodes, a)
     node_b = Map.fetch!(nodes, b)
     node_a.cost < node_b.cost
   end
 
-  def dijkstra(nodes, current, visited, seen) do
+  def dijkstra(nodes, current, visited) do
     # IO.inspect({current, seen}, label: "dijkstra")
     {:ok, node} = Map.fetch(nodes, current)
 
+    # Reached destination?
     if node.height == ?z + 1 do
       IO.inspect(current, label: "DONE")
       IO.inspect(node, label: "DONE")
-      #    print_way(nodes)
+      print_way([node | visited])
+      node.cost
     else
+      # Remove from nodelist
+      nodes = Map.delete(nodes, current)
+      # Find nodes to reach
+      # update cost and from
       nodes =
-        Map.update(nodes, current, node, fn node ->
-          %{node | visited: true}
-        end)
+        can_reach(nodes, current, node.height)
+        |> Enum.reduce(nodes, fn pos, nodes -> update_cost(nodes, pos, node.cost + 1, node.id) end)
 
-      possible_nodes = can_reach(nodes, current, node.height)
-      cost = node.cost + 1
-      # IO.inspect(possible_nodes)
-      # Update cost for all visible nodes
-      nodes =
-        possible_nodes
-        |> Enum.reduce(nodes, fn pos, nodes -> update_cost(nodes, pos, cost) end)
-
-      # Find notes to visited
-      not_visited =
-        possible_nodes
-        |> Enum.reject(fn pos ->
-          {:ok, n} = Map.fetch(nodes, pos)
-          n.visited
-        end)
-
-      # IO.inspect(MapSet.new(not_visited))
-      seen = MapSet.union(seen, MapSet.new(not_visited))
-      # IO.inspect(seen)
-
-      # Select node with minimum cost
-      if MapSet.size(seen) > 0 do
-        seen
-        |> MapSet.to_list()
-        |> Enum.sort(fn a, b -> sort_nodes_by_cost(nodes, a, b) end)
+      # select node with lowest cost
+      %{id: next} =
+        nodes
+        |> Map.values()
+        |> Enum.sort(fn a, b -> sort_by_cost(a, b) end)
         |> hd()
-        |> then(fn next ->
-          dijkstra(nodes, next, [current | visited], MapSet.delete(seen, next))
-        end)
-      else
-        # IO.inspect(Enum.reverse(visited))
-        node
-      end
+
+      IO.inspect(next)
+      # continue
+      dijkstra(nodes, next, [node | visited])
     end
   end
 end
 
 One.run(test_input)
 ```
+
+My solution is of by 2. The test data is correct, the puzzle input produces 464. The correct anwser is 462. Two other solutions provided that value.
+
+Now happy debugging.
 
 ```elixir
 One.run(input)
@@ -227,9 +230,9 @@ result = Two.run(input)
 
 ```elixir
 IO.puts("--- Part one ---")
-assert(One.run(test_input) == 42, "Part 1 with test input failed")
+assert(One.run(test_input) == 31, "Part 1 with test input failed")
 result = One.run(input)
-assert(result == 42, "Part 1 failed")
+assert(result == 462, "Part 1 failed")
 IO.puts(result)
 
 IO.puts("--- Part two ---")
