@@ -36,7 +36,7 @@ abdefghi
 """
 ```
 
-<https://adventofcode.com/2022/day/5>
+<https://adventofcode.com/2022/day/12>
 
 ## Parser
 
@@ -93,8 +93,8 @@ defmodule One do
 
   def can_step_to(nodes, {x, y}, height) do
     case Map.fetch(nodes, {x, y}) do
-      {:ok, node} ->
-        if node.height - height <= 1, do: {x, y}, else: false
+      {:ok, dest} ->
+        if dest.height <= height + 1, do: {x, y}, else: false
 
       _ ->
         false
@@ -122,16 +122,13 @@ defmodule One do
 
     nodes
     |> Map.update(first, node, fn node -> %{node | cost: 0} end)
-    |> recur(first)
+    |> dijkstra(first, [], MapSet.new())
   end
 
   def update_cost(nodes, pos, cost) do
     Map.update(nodes, pos, node, fn node ->
-      if node.cost > cost, do: %{node | cost: cost}, else: node
+      if cost < node.cost, do: %{node | cost: cost}, else: node
     end)
-  end
-
-  def recur(nodes, current, node) do
   end
 
   def print_way(nodes) do
@@ -143,50 +140,64 @@ defmodule One do
     end)
   end
 
-  def recur(nodes, current) do
-    # IO.inspect(current, label: "@")
+  def sort_by_cost({_, a}, {_, b}) do
+    a.cost < b.cost
+  end
+
+  def sort_nodes_by_cost(nodes, a, b) do
+    node_a = Map.fetch!(nodes, a)
+    node_b = Map.fetch!(nodes, b)
+    node_a.cost < node_b.cost
+  end
+
+  def dijkstra(nodes, current, visited, seen) do
+    # IO.inspect({current, seen}, label: "dijkstra")
     {:ok, node} = Map.fetch(nodes, current)
 
     if node.height == ?z + 1 do
       IO.inspect(current, label: "DONE")
       IO.inspect(node, label: "DONE")
-      print_way(nodes)
-
-      []
+      #    print_way(nodes)
     else
-      if !node.visited do
-        cost = node.cost + 1
-        possible_nodes = can_reach(nodes, current, node.height)
+      nodes =
+        Map.update(nodes, current, node, fn node ->
+          %{node | visited: true}
+        end)
 
-        nodes =
-          Map.update(nodes, current, node, fn node ->
-            %{node | visited: true, edges: possible_nodes}
-          end)
+      possible_nodes = can_reach(nodes, current, node.height)
+      cost = node.cost + 1
+      # IO.inspect(possible_nodes)
+      # Update cost for all visible nodes
+      nodes =
+        possible_nodes
+        |> Enum.reduce(nodes, fn pos, nodes -> update_cost(nodes, pos, cost) end)
 
-        # IO.inspect(possible_nodes, label: "edges")
+      # Find notes to visited
+      not_visited =
+        possible_nodes
+        |> Enum.reject(fn pos ->
+          {:ok, n} = Map.fetch(nodes, pos)
+          n.visited
+        end)
 
-        updated_cost_nodes =
-          possible_nodes
-          |> Enum.reduce(nodes, fn pos, nodes -> update_cost(nodes, pos, cost) end)
+      # IO.inspect(MapSet.new(not_visited))
+      seen = MapSet.union(seen, MapSet.new(not_visited))
+      # IO.inspect(seen)
 
-        updated_nodes =
-          possible_nodes
-          |> Enum.reduce_while(updated_cost_nodes, fn pos, nodes ->
-            n = recur(nodes, pos)
-
-            case n do
-              [] -> {:halt, nodes}
-              _ -> {:cont, n}
-            end
-          end)
+      # Select node with minimum cost
+      if MapSet.size(seen) > 0 do
+        seen
+        |> MapSet.to_list()
+        |> Enum.sort(fn a, b -> sort_nodes_by_cost(nodes, a, b) end)
+        |> hd()
+        |> then(fn next ->
+          dijkstra(nodes, next, [current | visited], MapSet.delete(seen, next))
+        end)
       else
-        nodes
+        # IO.inspect(Enum.reverse(visited))
+        node
       end
     end
-  end
-
-  def sort_by_cost({_, a}, {_, b}) do
-    a.cost <= b.cost
   end
 end
 
