@@ -2,8 +2,12 @@
 
 ```elixir
 Mix.install([
-  {:kino, "~> 0.7.0"}
+  {:kino, "~> 0.7.0"},
+  {:vega_lite, "~> 0.1.6"},
+  {:kino_vega_lite, "~> 0.1.7"}
 ])
+
+alias VegaLite, as: Vl
 
 import ExUnit.Assertions
 ```
@@ -42,7 +46,7 @@ abdefghi
 
 ```elixir
 defmodule Node do
-  defstruct id: nil, height: ?a, cost: 9_999_999, from: nil
+  defstruct id: nil, height: ?a, cost: 9_999_999, from: nil, dest: nil
 end
 
 defmodule Parse do
@@ -58,14 +62,13 @@ defmodule Parse do
         # and build {{x,y},el} tuple
         # Fix height for end
         fn el, idx ->
+          h = hd(String.to_charlist(el))
+
           {{idx + 1, row + 1},
            %Node{
              id: {idx + 1, row + 1},
-             height:
-               case hd(String.to_charlist(el)) do
-                 ?E -> ?z + 1
-                 x -> x
-               end
+             height: if(h == ?E, do: ?z, else: h),
+             dest: h == ?E
            }}
         end
       )
@@ -168,15 +171,11 @@ defmodule One do
   end
 
   def dijkstra(nodes, current, visited) do
-    # IO.inspect({current, seen}, label: "dijkstra")
     {:ok, node} = Map.fetch(nodes, current)
 
     # Reached destination?
-    if node.height == ?z + 1 do
-      IO.inspect(current, label: "DONE")
-      IO.inspect(node, label: "DONE")
-      print_way([node | visited])
-      node.cost
+    if node.dest do
+      way([node | visited])
     else
       # Remove from nodelist
       nodes = Map.delete(nodes, current)
@@ -193,19 +192,67 @@ defmodule One do
         |> Enum.sort(fn a, b -> sort_by_cost(a, b) end)
         |> hd()
 
-      IO.inspect(next)
       # continue
       dijkstra(nodes, next, [node | visited])
     end
   end
+
+  def way(nodes) do
+    way(nodes, [])
+  end
+
+  def way([], path) do
+    path
+  end
+
+  def way([head | nodes], path) do
+    %{id: id, from: from} = head
+    way(Enum.drop_while(nodes, fn %{id: id} -> id != from end), [head | path])
+  end
 end
 
-One.run(test_input)
+path = One.run(test_input)
+```
+
+## Kino
+
+```elixir
+data = input
+
+chart =
+  Vl.new(width: 3200, height: 800)
+  |> Vl.layers([
+    Vl.new()
+    |> Vl.data_from_values(
+      Map.values(Parse.run(data))
+      |> Enum.map(fn %{id: {x, y}, height: h} -> %{"x" => x, "y" => y, "h" => h - ?a} end)
+    )
+    |> Vl.mark(:rect, opacity: 0.9)
+    |> Vl.encode_field(:x, "x", type: :nominal, axis: nil)
+    |> Vl.encode_field(:y, "y", type: :nominal, axis: nil)
+    |> Vl.encode(:color, field: "h", type: :quantitative),
+    Vl.new()
+    |> Vl.mark(:text, color: :white, angle: -45)
+    |> Vl.encode_field(:x, "x", type: :nominal, axis: nil)
+    |> Vl.encode_field(:y, "y", type: :nominal, axis: nil)
+    |> Vl.encode(:text, field: "c", type: :quantitative)
+  ])
+  |> Kino.VegaLite.new()
+  |> Kino.render()
+
+for %{id: {x, y}, cost: c} <- One.run(data) do
+  Kino.VegaLite.push(chart, %{"x" => x, "y" => y, "h" => -25, "c" => c})
+  # Process.sleep(1)
+end
 ```
 
 My solution is of by 2. The test data is correct, the puzzle input produces 464. The correct anwser is 462. Two other solutions provided that value.
 
 Now happy debugging.
+
+Algo ist correct. Nice encoding error. I encoded E as z + 1. But E must be equal z as a height. New field for destination.
+
+On the plus side: I learned some Vega lite.
 
 ```elixir
 One.run(input)
