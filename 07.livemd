@@ -56,6 +56,8 @@ $ ls
 
 <https://adventofcode.com/2022/day/7>
 
+Cool solution: <https://elixirforum.com/t/advent-of-code-2022-day-7/52324/12>
+
 ## Parser
 
 ```elixir
@@ -171,6 +173,67 @@ IO.puts(result)
 assert(result == 1_325_919, "Part 1 failed")
 ```
 
+```elixir
+defmodule Tree2 do
+  @moduledoc """
+  Should return something like
+  [
+    {"/", 123324324, 
+      [{"a", 862346, []},
+      {"b", 23423423, [
+        {"c", 23487234, []}
+      ]}
+    }
+  ]
+  """
+
+  @doc """
+  Create list for root dir.
+  {total, [{name, size, [subdirectories]}, parent, …]}
+  """
+
+  def tree({:cd, "/"}, _) do
+    {0, [{"/", 0, []}]}
+  end
+
+  def tree({:cd, ".."}, {total, [{cname, csize, csub} | stack]}) do
+    # IO.inspect("..")
+
+    case stack do
+      [{pname, psum, psub} | rest] ->
+        {total + csize, [{pname, psum + csize, [{cname, csize, csub}] ++ psub} | rest]}
+    end
+  end
+
+  # Push subdirectory on stack
+  def tree({:cd, name}, {total, state}) do
+    {total, [{name, 0, []} | state]}
+  end
+
+  # Omit ls command
+  def tree({:ls}, state) do
+    state
+  end
+
+  # Omit dir command
+  def tree({:dir, _name}, state) do
+    state
+  end
+
+  def tree({:file, _name, size}, {total, [{name, sum, sub} | rest]}) do
+    {total, [{name, sum + size, sub} | rest]}
+  end
+
+  def finish({size, [fs]}) do
+    {size, [fs]}
+  end
+
+  def finish({size, [dir | state]}) do
+    finish(tree({:cd, ".."}, {size, [dir | state]}))
+  end
+end
+```
+
 ## Part 2
 
 ```elixir
@@ -178,37 +241,56 @@ defmodule Two do
   @memory 70_000_000
   @needed 30_000_000
   def run(input) do
-    {_, fs} =
+    {_size, fs} =
       input
       |> Parse.run()
-      # |> IO.inspect()
-      |> Enum.reduce(nil, fn cmd, state -> Tree.tree(cmd, state) end)
-      |> IO.inspect()
+      |> Enum.reduce(nil, fn cmd, state -> Tree2.tree(cmd, state) end)
+      |> Tree2.finish()
+      |> dbg()
 
     # Get current size
-    [{_, size, _}] = fs
+    [{_name, size, _siblings}] = fs
     unused = @memory - size
-    find_it(@needed - unused, @memory, fs)
+    find_it(IO.inspect(@needed - unused, label: "REQ"), @memory, fs, nil)
   end
 
-  def find_it(goal, minimum, []) do
-    {goal, minimum, []}
+  def find_it(_goal, minimum, [], found) do
+    {found, minimum}
   end
 
-  def find_it(goal, minimum, [dir]) do
-    {_name, size, sub} = dir
-    new_minimum = if size > goal && size < minimum, do: size, else: minimum
-    find_it(goal, new_minimum, sub)
+  def find_it(goal, minimum, {name, size, []}, found) do
+    if size > goal && size < minimum do
+      {name, size}
+    else
+      {found, minimum}
+    end
   end
 
-  def find_it(goal, minimum, [dir | siblings]) do
-    {_, size, _} = find_it(goal, minimum, [dir])
-    new_minimum = if size > goal && size < minimum, do: size, else: minimum
-    find_it(goal, new_minimum, siblings)
+  def find_it(goal, minimum, {name, size, sub}, found) do
+    if size > goal && size < minimum do
+      find_it(goal, size, sub, name)
+    else
+      find_it(goal, minimum, sub, found)
+    end
+  end
+
+  # subdirs
+  def find_it(goal, minimum, [dir | siblings], found) do
+    {name, size} = find_it(goal, minimum, dir, found)
+
+    if size > goal && size < minimum do
+      find_it(goal, size, siblings, name)
+    else
+      find_it(goal, minimum, siblings, found)
+    end
   end
 end
 
-Two.run(test_input)
+Two.run(input)
+```
+
+```elixir
+70_000_000 - 42_036_703
 ```
 
 ```elixir
