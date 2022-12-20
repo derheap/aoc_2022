@@ -137,37 +137,8 @@ defmodule One do
     |> Map.update(pos, nil, fn node -> %{node | from: from} end)
   end
 
-  def pos_to_string({x, y}) do
-    Integer.to_string(x) <> "," <> Integer.to_string(y)
-  end
-
-  def pos_to_string(nil) do
-    "?,?"
-  end
-
-  def print_way(nodes) do
-    nodes
-    |> Enum.sort(&sort_by_cost/2)
-    |> Enum.each(fn n ->
-      IO.puts(
-        pos_to_string(n.from) <>
-          " -> " <>
-          pos_to_string(n.id) <>
-          " @" <>
-          Integer.to_string(n.cost)
-      )
-    end)
-  end
-
   def sort_by_cost(a, b) do
     a.cost < b.cost
-  end
-
-  def sort_nodes_by_cost(nodes, a, b) do
-    IO.inspect({a, b, nodes})
-    node_a = Map.fetch!(nodes, a)
-    node_b = Map.fetch!(nodes, b)
-    node_a.cost < node_b.cost
   end
 
   def dijkstra(nodes, current, visited) do
@@ -262,11 +233,25 @@ One.run(input)
 
 ```elixir
 defmodule Two do
+  def count_steps(nodes, first) do
+    nodes
+    |> Map.update(first, nil, fn node -> %{node | cost: 0} end)
+    |> One.dijkstra(first, [])
+    |> length()
+    |> then(fn l -> l - 1 end)
+  end
+
   def run(input) do
+    nodes = Parse.run(input)
+    size_y = length(AOC.split_lines(input))
+
+    1..size_y
+    |> Enum.map(fn y -> count_steps(nodes, {1, y}) end)
+    |> Enum.min()
   end
 end
 
-Two.run(test_input)
+Two.run(input)
 ```
 
 ```elixir
