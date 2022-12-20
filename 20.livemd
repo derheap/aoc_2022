@@ -1,0 +1,162 @@
+# Day 20: Grove Positioning System
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+import ExUnit.Assertions
+```
+
+## Import data
+
+```elixir
+# input_field = Kino.Input.textarea("Please paste your input file:")
+input = File.read!(__DIR__ <> "/input/20.txt")
+```
+
+## Helper
+
+```elixir
+defmodule AOC do
+  def split_lines(text), do: String.split(text, "\n", trim: true)
+  def split_chunks(text), do: String.split(text, "\n\n", trim: true)
+end
+```
+
+## Part 1
+
+```elixir
+test_input = """
+1
+2
+-3
+3
+-2
+0
+4
+"""
+```
+
+<https://adventofcode.com/2022/day/20>
+
+## Parser
+
+```elixir
+defmodule Parse do
+  def run(input) do
+    input
+    |> AOC.split_lines()
+    |> Enum.map(&String.to_integer(&1))
+  end
+end
+```
+
+> The encrypted file is a list of numbers. To mix the file, move each number forward or backward in the file a number of positions equal to the value of the number being moved. The list is circular, so moving a number off one end of the list wraps back around to the other end as if the ends were connected.
+
+Unclear: How to move multiple occurences of the same number?
+
+```elixir
+defmodule One do
+  @moduledoc """
+  The numbers are not unique. So keep original order.
+  """
+
+  def move(op, data, len) do
+    # split list at num
+    {left, hd, right} = split(op, [], data)
+    len_left = length(left)
+
+    case hd do
+      0 -> data
+      x when x > 0 -> move(left, hd, right, rem(len_left + rem(hd, len), len))
+      x when x < 0 -> move(left, hd, right, rem(len_left + rem(hd, len) + len - 1, len))
+    end
+  end
+
+  def split(op, left, [hd | right]) do
+    if op == hd, do: {Enum.reverse(left), hd, right}, else: split(op, [hd | left], right)
+  end
+
+  def move(left, hd, right, new_pos) do
+    len_left = length(left)
+
+    cond do
+      new_pos == len_left ->
+        left ++ [hd | right]
+
+      new_pos < len_left ->
+        {ll, lr} = Enum.split(left, new_pos)
+        ll ++ [hd | lr] ++ right
+
+      true ->
+        {rl, rr} = Enum.split(right, new_pos - len_left)
+        left ++ rl ++ [hd | rr]
+    end
+  end
+
+  def run(input) do
+    ops = input |> Parse.run()
+    len = length(ops)
+
+    data =
+      ops
+      |> Enum.with_index()
+      |> Enum.map(fn {num, idx} -> {num, idx} end)
+      |> IO.inspect()
+
+    mixed =
+      ops
+      |> Enum.reduce(data, fn op, acc -> move(op, acc, len) end)
+
+    pos_null = Enum.find_index(mixed, &(&1 == 0))
+
+    Enum.sum([
+      Enum.at(mixed, rem(pos_null + 1000, len)),
+      Enum.at(mixed, rem(pos_null + 2000, len)),
+      Enum.at(mixed, rem(pos_null + 3000, len))
+    ])
+  end
+end
+
+One.run(test_input)
+```
+
+```elixir
+rem(2 + rem(-2, 7) + 6, 7)
+```
+
+```elixir
+One.run(input)
+```
+
+## Part 2
+
+```elixir
+defmodule Two do
+  def run(input) do
+  end
+end
+
+Two.run(test_input)
+```
+
+```elixir
+result = Two.run(input)
+```
+
+## Both parts
+
+```elixir
+IO.puts("--- Part one ---")
+assert(One.run(test_input) == 42, "Part 1 with test input failed")
+result = One.run(input)
+assert(result == 42, "Part 1 failed")
+IO.puts(result)
+
+IO.puts("--- Part two ---")
+assert(Two.run(test_input) == 23, "Part 2 with test input failed")
+result_2 = Two.run(input)
+assert(result_2 == 23, "Part 2 failed")
+IO.puts(result_2)
+```
