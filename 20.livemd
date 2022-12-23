@@ -62,29 +62,47 @@ defmodule One do
   The numbers are not unique. So keep original order.
   """
 
-  def move(op, data, len) do
-    # split list at num
-    {left, hd, right} = split(op, [], data)
-    len_left = length(left)
+  def run(input) do
+    ops = input |> Parse.run()
+    len = length(ops)
 
-    case hd do
-      0 -> data
-      x when x > 0 -> move(left, hd, right, rem(len_left + rem(hd, len), len))
-      x when x < 0 -> move(left, hd, right, rem(len_left + rem(hd, len) + len - 1, len))
-    end
+    data =
+      ops
+      |> Enum.with_index()
+      |> Enum.map(fn {num, idx} -> {num, idx} end)
+
+    {mixed, _} =
+      ops
+      |> Enum.reduce(
+        {data, 0},
+        fn op, {acc, idx} -> {move(op, idx, acc, len), idx + 1} end
+      )
+
+    pos_null = Enum.find_index(mixed, fn {num, _} -> num == 0 end)
+
+    Enum.sum([
+      num_at(mixed, pos_null + 1000, len),
+      num_at(mixed, pos_null + 2000, len),
+      num_at(mixed, pos_null + 3000, len)
+    ])
   end
 
-  def split(op, left, [hd | right]) do
-    if op == hd, do: {Enum.reverse(left), hd, right}, else: split(op, [hd | left], right)
+  def move(_op, idx, data, len) do
+    {left, {x, num}, right} = split(idx, [], data)
+    # It took me hours to figure out the correct modulo for the wrap around.
+    move_it(left, {x, num}, right, Integer.mod(length(left) + x, len - 1))
   end
 
-  def move(left, hd, right, new_pos) do
+  # find old position of number
+  def split(idx, left, [hd | right]) do
+    {_, pos} = hd
+    if idx == pos, do: {Enum.reverse(left), hd, right}, else: split(idx, [hd | left], right)
+  end
+
+  def move_it(left, hd, right, new_pos) do
     len_left = length(left)
 
     cond do
-      new_pos == len_left ->
-        left ++ [hd | right]
-
       new_pos < len_left ->
         {ll, lr} = Enum.split(left, new_pos)
         ll ++ [hd | lr] ++ right
@@ -95,35 +113,13 @@ defmodule One do
     end
   end
 
-  def run(input) do
-    ops = input |> Parse.run()
-    len = length(ops)
-
-    data =
-      ops
-      |> Enum.with_index()
-      |> Enum.map(fn {num, idx} -> {num, idx} end)
-      |> IO.inspect()
-
-    mixed =
-      ops
-      |> Enum.reduce(data, fn op, acc -> move(op, acc, len) end)
-
-    pos_null = Enum.find_index(mixed, &(&1 == 0))
-
-    Enum.sum([
-      Enum.at(mixed, rem(pos_null + 1000, len)),
-      Enum.at(mixed, rem(pos_null + 2000, len)),
-      Enum.at(mixed, rem(pos_null + 3000, len))
-    ])
+  def num_at(data, idx, len) do
+    {num, _} = Enum.at(data, rem(idx, len))
+    num
   end
 end
 
 One.run(test_input)
-```
-
-```elixir
-rem(2 + rem(-2, 7) + 6, 7)
 ```
 
 ```elixir
@@ -134,7 +130,40 @@ One.run(input)
 
 ```elixir
 defmodule Two do
+  @key 811_589_153
+
+  def mix(data, ops, len) do
+    {mixed, _} =
+      ops
+      |> Enum.reduce({data, 0}, fn op, {acc, idx} -> {One.move(op, idx, acc, len), idx + 1} end)
+
+    mixed
+  end
+
   def run(input) do
+    ops =
+      input
+      |> Parse.run()
+      |> Enum.map(&(&1 * @key))
+
+    len = length(ops)
+
+    data =
+      ops
+      |> Enum.with_index()
+      |> Enum.map(fn {num, idx} -> {num, idx} end)
+
+    mixed =
+      1..10
+      |> Enum.reduce(data, fn _, acc -> mix(acc, ops, len) end)
+
+    pos_null = Enum.find_index(mixed, fn {num, _} -> num == 0 end)
+
+    Enum.sum([
+      One.num_at(mixed, pos_null + 1000, len),
+      One.num_at(mixed, pos_null + 2000, len),
+      One.num_at(mixed, pos_null + 3000, len)
+    ])
   end
 end
 
@@ -149,14 +178,14 @@ result = Two.run(input)
 
 ```elixir
 IO.puts("--- Part one ---")
-assert(One.run(test_input) == 42, "Part 1 with test input failed")
+assert(One.run(test_input) == 3, "Part 1 with test input failed")
 result = One.run(input)
-assert(result == 42, "Part 1 failed")
+assert(result == 7004, "Part 1 failed")
 IO.puts(result)
 
 IO.puts("--- Part two ---")
-assert(Two.run(test_input) == 23, "Part 2 with test input failed")
+assert(Two.run(test_input) == 1_623_178_306, "Part 2 with test input failed")
 result_2 = Two.run(input)
-assert(result_2 == 23, "Part 2 failed")
+assert(result_2 == 17_200_008_919_529, "Part 2 failed")
 IO.puts(result_2)
 ```
