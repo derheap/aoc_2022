@@ -47,13 +47,13 @@ test_input = """
 """
 ```
 
-<https://adventofcode.com/2022/day/12>
+<https://adventofcode.com/2022/day/23>
 
 ## Parser
 
 ```elixir
 defmodule Elv do
-  defstruct proposed: nil, new_pos: nil
+  defstruct proposed: nil, direction: nil
 end
 
 defmodule Parse do
@@ -63,13 +63,11 @@ defmodule Parse do
     |> Enum.with_index()
     |> Enum.map(fn {line, y} ->
       String.to_charlist(line)
-      |> Enum.with_index(fn element, x -> {{x, y}, element} end)
+      |> Enum.with_index(fn element, x -> {{x + 1, y + 1}, element} end)
     end)
     |> Enum.flat_map(& &1)
-    |> Enum.filter(fn {pos, element} -> element == ?# end)
+    |> Enum.filter(fn {_, element} -> element == ?# end)
     |> Enum.map(fn {pos, _} -> {pos, %Elv{}} end)
-
-    # |> Map.new()
   end
 end
 
@@ -78,81 +76,140 @@ Parse.run(test_input)
 
 ```elixir
 defmodule One do
-  def run(input) do
-    input
-    |> Parse.run()
-    |> move_elves([], 1)
+  def directions(round) when rem(round, 4) == 1, do: [:north, :south, :west, :east]
+  def directions(round) when rem(round, 4) == 2, do: [:south, :west, :east, :north]
+  def directions(round) when rem(round, 4) == 3, do: [:west, :east, :north, :south]
+  def directions(round) when rem(round, 4) == 0, do: [:east, :north, :south, :west]
+
+  def free(pos, map), do: !Map.has_key?(map, pos)
+
+  def must_move({x, y}, map) do
+    !(free({x - 1, y - 1}, map) && free({x, y - 1}, map) && free({x + 1, y - 1}, map) &&
+        free({x - 1, y}, map) && free({x + 1, y}, map) &&
+        free({x - 1, y + 1}, map) && free({x, y + 1}, map) && free({x + 1, y + 1}, map))
   end
 
-  def move_elves(elves, moved, round) do
+  def can_move({x, y}, map, :north) do
+    free({x - 1, y - 1}, map) && free({x, y - 1}, map) && free({x + 1, y - 1}, map)
+  end
+
+  def can_move({x, y}, map, :south) do
+    free({x - 1, y + 1}, map) && free({x, y + 1}, map) && free({x + 1, y + 1}, map)
+  end
+
+  def can_move({x, y}, map, :west) do
+    free({x - 1, y + 1}, map) && free({x - 1, y}, map) && free({x - 1, y - 1}, map)
+  end
+
+  def can_move({x, y}, map, :east) do
+    free({x + 1, y + 1}, map) && free({x + 1, y}, map) && free({x + 1, y - 1}, map)
+  end
+
+  def move({x, y}, :north), do: {x, y - 1}
+  def move({x, y}, :south), do: {x, y + 1}
+  def move({x, y}, :west), do: {x - 1, y}
+  def move({x, y}, :east), do: {x + 1, y}
+  def move({x, y}, _), do: {x, y}
+
+  def propose_move(elv_pos, map, round) do
+    {pos, elv} = elv_pos
+
+    if must_move(pos, map) do
+      direction =
+        directions(round)
+        |> Enum.reduce_while(nil, fn direction, acc ->
+          if can_move(pos, map, direction) do
+            {:halt, direction}
+          else
+            {:cont, acc}
+          end
+        end)
+
+      {pos, %Elv{%Elv{elv | direction: direction} | proposed: move(pos, direction)}}
+    else
+      elv_pos
+    end
+  end
+
+  def move_elves(elves, round) do
     map = Map.new(elves)
 
     elves
     |> Enum.map(&propose_move(&1, map, round))
+    |> Enum.group_by(fn {_, %Elv{proposed: proposed}} -> proposed end)
+    |> Enum.map(&move_group/1)
+    |> Enum.flat_map(& &1)
   end
 
-  def directions(round) when rem(round, 4) == 1, do: [:north, :east, :south, :west]
-  def directions(round) when rem(round, 4) == 2, do: [:east, :south, :west, :north]
-  def directions(round) when rem(round, 4) == 3, do: [:south, :west, :north, :east]
-  def directions(round) when rem(round, 4) == 4, do: [:west, :north, :east, :south]
-
-  def free(pos, map), do: !Map.has_key?(map, pos)
-
-  def can_move({x, y}, map, :north) do
-    free({x - 1, y - 1}, map) || free({x, y - 1}, map) || free({x + 1, y - 1}, map)
+  def move_group({_, group}) do
+    if length(group) == 1 do
+      group |> Enum.map(fn {_, elv} -> {elv.proposed, %Elv{}} end)
+    else
+      group |> Enum.map(fn {pos, _} -> {pos, %Elv{}} end)
+    end
   end
 
-  def can_move({x, y}, map, :south) do
-    free({x - 1, y + 1}, map) || free({x, y + 1}, map) || free({x + 1, y + 1}, map)
+  def run(input) do
+    elves = input |> Parse.run()
+
+    1..10
+    |> Enum.reduce(elves, fn round, elves -> move_elves(elves, round) end)
   end
 
-  def can_move({x, y}, map, :west) do
-    free({x - 1, y + 1}, map) || free({x - 1, y}, map) || free({x - 1, y - 1}, map)
-  end
+  def free_space(input) do
+    coords =
+      input
+      |> run()
+      |> Enum.map(fn {pos, _} -> pos end)
+      |> Enum.unzip()
 
-  def can_move({x, y}, map, :east) do
-    free({x + 1, y + 1}, map) || free({x + 1, y}, map) || free({x + 1, y - 1}, map)
-  end
-
-  def propose_move(elve, map, round) do
+    {xs, ys} = coords
+    x_min = Enum.min(xs)
+    x_max = Enum.max(xs)
+    y_min = Enum.min(ys)
+    y_max = Enum.max(ys)
+    (x_max - x_min + 1) * (y_max - y_min + 1) - length(xs)
   end
 end
 
-One.run(test_input)
+One.free_space(test_input)
 ```
 
 ```elixir
-One.run(input)
+One.free_space(input)
 ```
 
 ```elixir
 data = test_input
 
-chart =
-  Vl.new(width: 800, height: 800)
-  |> Vl.layers([
-    Vl.new()
-    |> Vl.data_from_values(
-      Parse.run(data)
-      |> Enum.map(fn {{x, y}, _} -> %{"x" => x, "y" => y, "h" => 1} end)
-    )
-    |> Vl.mark(:rect, opacity: 0.9)
-    |> Vl.encode_field(:x, "x", type: :nominal, axis: nil)
-    |> Vl.encode_field(:y, "y", type: :nominal, axis: nil)
-    |> Vl.encode(:color, field: "h", type: :quantitative),
-    Vl.new()
-    |> Vl.mark(:text, color: :white, angle: -45)
-    |> Vl.encode_field(:x, "x", type: :nominal, axis: nil)
-    |> Vl.encode_field(:y, "y", type: :nominal, axis: nil)
-    |> Vl.encode(:text, field: "c", type: :quantitative)
-  ])
-  |> Kino.VegaLite.new()
-  |> Kino.render()
+defmodule Animation do
+  def draw(data, frame) do
+    chart =
+      Vl.new(width: 300, height: 300)
+      |> Vl.layers([
+        Vl.new()
+        |> Vl.data_from_values(
+          One.run(data)
+          |> Enum.map(fn {{x, y}, _} -> %{"x" => x, "y" => -y, "h" => 10} end)
+        )
+        |> Vl.mark(:rect, width: 16, height: 16)
+        |> Vl.encode_field(:x, "x", type: :quantitative, axis: %{grid: true, tick_count: 5})
+        |> Vl.encode_field(:y, "y", type: :quantitative, axis: %{grid: true, tick_count: 6})
+        |> Vl.encode(:color, field: "h", type: :ordinal)
+        #  Vl.new()
+        #  |> Vl.mark(:circle, color: :red)
+        #  |> Vl.encode_field(:x, "x", type: :quantitative, axis: nil)
+        #   |> Vl.encode_field(:y, "y", type: :quantitative, axis: nil)
+        #   |> Vl.encode(:color, field: "c", type: :quantitative)
+      ])
+      |> Kino.VegaLite.new()
 
-for %{id: {x, y}, cost: c} <- One.run(data) do
-  Kino.VegaLite.push(chart, %{"x" => x, "y" => y, "h" => -25, "c" => c})
-  # Process.sleep(1)
+    Kino.Frame.render(frame, chart)
+  end
 end
+
+frame = Kino.Frame.new()
+# Animation.draw(data,frame)
 ```
 
 ## Part 2
@@ -160,28 +217,88 @@ end
 ```elixir
 defmodule Two do
   def run(input) do
+    input
+    |> Parse.run()
+    |> recur(0)
+  end
+
+  def recur(elves, round) do
+    case step(elves, round) do
+      {:cont, elves, round} -> recur(elves, round)
+      {:halt, round} -> round
+    end
+  end
+
+  def step(elves, round) do
+    map = Map.new(elves)
+
+    moves =
+      Enum.reduce(elves, 0, fn {pos, _}, acc ->
+        if One.must_move(pos, map), do: acc + 1, else: acc
+      end)
+
+    if moves > 0,
+      do: {:cont, One.move_elves(elves, round + 1), round + 1},
+      else: {:halt, round + 1}
   end
 end
 
-Two.run(test_input)
+Two.run(input)
 ```
 
 ```elixir
 result = Two.run(input)
 ```
 
+## VegaLite
+
+```elixir
+elves = input |> Parse.run()
+
+graph =
+  Vl.new(height: 800, width: 800)
+  |> Vl.mark(:circle, opacity: 0.8, size: 6)
+  |> Vl.encode_field(:x, "x", type: :quantitative, scale: %{domain: [-20, 140]}, axis: false)
+  |> Vl.encode_field(:y, "y", type: :quantitative, scale: %{domain: [-140, 20]}, axis: false)
+  |> Vl.encode_field(:color, "h",
+    type: :quantitative,
+    scale: [domain: [0, 9], range: ["brown", "red", "yellow"]]
+  )
+  |> Kino.VegaLite.new()
+  |> Kino.render()
+
+Kino.VegaLite.periodically(
+  graph,
+  10,
+  {elves, 0},
+  fn {elves, round} ->
+    result = Two.step(elves, round)
+
+    data = Enum.map(elves, fn {{x, y}, _} -> %{"x" => x, "y" => -y, "h" => 0} end)
+
+    Kino.VegaLite.clear(graph)
+    Kino.VegaLite.push_many(graph, data)
+
+    case result do
+      {:cont, elves, round} -> {:cont, {elves, round}}
+      _ -> :halt
+    end
+  end
+)
+```
+
 ## Both parts
 
 ```elixir
 IO.puts("--- Part one ---")
-assert(One.run(test_input) == 42, "Part 1 with test input failed")
-result = One.run(input)
-assert(result == 42, "Part 1 failed")
+assert(One.free_space(test_input) == 110, "Part 1 with test input failed")
+result = One.free_space(input)
+assert(result == 4068, "Part 1 failed")
 IO.puts(result)
 
 IO.puts("--- Part two ---")
-assert(Two.run(test_input) == 23, "Part 2 with test input failed")
+assert(Two.run(test_input) == 20, "Part 2 with test input failed")
 result_2 = Two.run(input)
-assert(result_2 == 23, "Part 2 failed")
+assert(result_2 == 968, "Part 2 failed")
 IO.puts(result_2)
 ```
